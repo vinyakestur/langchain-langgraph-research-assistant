@@ -309,7 +309,7 @@ def create_sample_analysts(analyst_count, topic):
     return [SimpleAnalyst(analyst) for analyst in sample_analysts[:analyst_count]]
 
 def run_research_background(topic, implementation, analyst_count, human_feedback):
-    """Run research in background thread with proper feedback handling"""
+    """Run research in background thread with ACTUAL research AND UI integration"""
     global research_active
     
     try:
@@ -412,32 +412,62 @@ def run_research_background(topic, implementation, analyst_count, human_feedback
         if not research_active:
             return
         
-        # Try to run actual research if method exists
-        if implementation == 'langchain' and hasattr(assistant, 'run_research'):
+        # ✅ ACTUALLY RUN THE REAL RESEARCH (from working first code)
+        if implementation == 'langchain':
             try:
-                emit_terminal_output("🔗 Running LangChain research process...", 'output')
-                emit_progress(50, "Running LangChain research")
+                emit_terminal_output("🔗 Running REAL LangChain research process...", 'output')
+                emit_progress(50, "Creating analysts and conducting real research")
                 
-                # For LangChain, we need to simulate the interview process to show in UI
-                simulate_langchain_interviews(analysts, topic)
-                
+                # Call the actual research method that does everything
                 report = assistant.run_research(topic, analyst_count)
-                if report:
+                
+                if report and not report.startswith("❌"):
+                    # Emit the REAL report
                     emit_final_report(report)
                     emit_terminal_output("✅ LangChain research completed successfully!", 'success')
-                    emit_progress(100, "Research completed successfully")
+                    emit_progress(100, "Real research completed successfully")
                     socketio.emit('research_completed', {
                         'topic': topic,
-                        'analyst_count': len(analysts),
+                        'analyst_count': analyst_count,
                         'implementation': implementation
                     })
                     return
+                else:
+                    emit_terminal_output(f"❌ Research failed: {report}", 'error')
+                    return
+                    
             except Exception as e:
-                emit_terminal_output(f"⚠️ LangChain research method failed: {str(e)}", 'output')
-                emit_terminal_output("🔄 Continuing with simulation...", 'output')
+                emit_terminal_output(f"❌ LangChain research failed: {str(e)}", 'error')
+                socketio.emit('research_error', {'error': str(e)})
+                return
         
-        # Simulate research process for demonstration
-        simulate_research_process(implementation, analysts, topic)
+        elif implementation == 'langgraph':
+            try:
+                emit_terminal_output("🌐 Running REAL LangGraph research process...", 'output')
+                emit_progress(50, "Creating analysts and conducting real research")
+                
+                # Call the actual research method
+                report = assistant.run_research(topic, analyst_count)
+                
+                if report and isinstance(report, str) and not report.startswith("❌"):
+                    # Emit the REAL report
+                    emit_final_report(report)
+                    emit_terminal_output("✅ LangGraph research completed successfully!", 'success')
+                    emit_progress(100, "Real research completed successfully")
+                    socketio.emit('research_completed', {
+                        'topic': topic,
+                        'analyst_count': analyst_count,
+                        'implementation': implementation
+                    })
+                    return
+                else:
+                    emit_terminal_output(f"❌ Research failed: {report}", 'error')
+                    return
+                    
+            except Exception as e:
+                emit_terminal_output(f"❌ LangGraph research failed: {str(e)}", 'error')
+                socketio.emit('research_error', {'error': str(e)})
+                return
         
     except Exception as e:
         emit_terminal_output(f"❌ Research failed: {str(e)}", 'error')
@@ -446,204 +476,6 @@ def run_research_background(topic, implementation, analyst_count, human_feedback
     finally:
         research_active = False
 
-def simulate_langchain_interviews(analysts, topic):
-    """Simulate LangChain interview process with detailed UI updates"""
-    emit_terminal_output("🎤 Starting LangChain sequential interviews...", 'output')
-    
-    for i, analyst in enumerate(analysts, 1):
-        if not research_active:
-            return
-        
-        name = analyst.name if hasattr(analyst, 'name') else analyst.get('name', f'Analyst {i}')
-        role = analyst.role if hasattr(analyst, 'role') else analyst.get('role', 'Expert')
-        
-        # Start interview
-        emit_terminal_output(f"  🎤 Interview {i}/{len(analysts)}: {name}", 'output')
-        emit_interview_update(name, f"Starting interview with {name} ({role})", 'start')
-        time.sleep(1)
-        
-        # Simulate question-answer rounds
-        questions = [
-            f"How does {topic} relate to your expertise in {role.lower()}?",
-            f"What are the key challenges in {topic} from your perspective?",
-            f"What practical recommendations would you give regarding {topic}?"
-        ]
-        
-        for q_num, question in enumerate(questions, 1):
-            if not research_active:
-                return
-                
-            # Analyst asks question
-            emit_interview_update(name, f"Q{q_num}: {question}", 'question')
-            emit_terminal_output(f"    ❓ {name}: {question}", 'analyst')
-            time.sleep(1)
-            
-            # System searches
-            emit_interview_update(name, "🔍 Searching for relevant information...", 'search')
-            emit_terminal_output(f"    🔍 Searching for relevant information...", 'output')
-            time.sleep(1)
-            
-            # Expert responds
-            sample_answers = [
-                f"Based on recent research in {role.lower()}, {topic} shows significant impact through multiple pathways...",
-                f"The main challenges include implementation barriers and measurement difficulties, but studies indicate...",
-                f"I recommend a structured approach focusing on evidence-based practices and consistent application..."
-            ]
-            answer = sample_answers[q_num-1]
-            
-            emit_interview_update(name, f"A{q_num}: {answer}", 'answer')
-            emit_terminal_output(f"    💡 Expert: {answer}", 'expert')
-            time.sleep(1)
-        
-        # Complete interview
-        emit_interview_update(name, f"Interview with {name} completed successfully", 'complete')
-        emit_terminal_output(f"  ✅ Interview with {name} completed", 'success')
-        time.sleep(0.5)
-
-def simulate_research_process(implementation, analysts, topic):
-    """Simulate the research process for demonstration"""
-    global research_active
-    
-    emit_terminal_output("🎤 Starting research interviews...", 'output')
-    emit_progress(50, "Conducting research interviews")
-    
-    if implementation == 'langchain':
-        # Sequential interviews - detailed simulation
-        simulate_langchain_interviews(analysts, topic)
-    
-    else:
-        # Parallel interviews (LangGraph)
-        emit_terminal_output("🌐 Conducting interviews in parallel...", 'output')
-        emit_terminal_output(f"  📊 Launching {len(analysts)} concurrent interview processes", 'output')
-        
-        # Start all interviews simultaneously for UI
-        for i, analyst in enumerate(analysts):
-            if not research_active:
-                return
-            name = analyst.name if hasattr(analyst, 'name') else analyst.get('name', f'Analyst {i+1}')
-            role = analyst.role if hasattr(analyst, 'role') else analyst.get('role', 'Expert')
-            
-            emit_interview_update(name, f"Starting parallel interview with {name}", 'start')
-            emit_terminal_output(f"  [Thread {i+1}] {name}: Starting specialized analysis...", 'analyst')
-            time.sleep(0.3)
-        
-        # Simulate parallel processing with detailed questions
-        time.sleep(1)
-        
-        # Show questions from all analysts
-        for analyst in analysts:
-            if not research_active:
-                return
-            name = analyst.name if hasattr(analyst, 'name') else analyst.get('name', 'Analyst')
-            role = analyst.role if hasattr(analyst, 'role') else analyst.get('role', 'Expert')
-            
-            question = f"From a {role.lower()} perspective, what are the key implications of {topic}?"
-            emit_interview_update(name, question, 'question')
-            emit_terminal_output(f"  [Thread] {name}: {question}", 'analyst')
-            time.sleep(0.4)
-        
-        emit_terminal_output("  🔍 Parallel search across multiple sources...", 'output')
-        time.sleep(1)
-        
-        # Show answers from experts
-        for analyst in analysts:
-            if not research_active:
-                return
-            name = analyst.name if hasattr(analyst, 'name') else analyst.get('name', 'Analyst')
-            
-            answer = f"Research indicates significant benefits with measurable outcomes in multiple domains..."
-            emit_interview_update(name, answer, 'answer')
-            emit_terminal_output(f"  [Expert → {name}] {answer}", 'expert')
-            time.sleep(0.4)
-        
-        # Complete all interviews
-        for analyst in analysts:
-            name = analyst.name if hasattr(analyst, 'name') else analyst.get('name', 'Analyst')
-            emit_interview_update(name, f"Parallel interview with {name} completed", 'complete')
-        
-        emit_terminal_output(f"  ✅ All {len(analysts)} interviews completed simultaneously", 'success')
-    
-    emit_progress(80, "All interviews completed")
-    time.sleep(1)
-    
-    if not research_active:
-        return
-    
-    # Generate report
-    emit_terminal_output("📝 Generating report sections...", 'output')
-    emit_progress(90, "Generating comprehensive report")
-    time.sleep(2)
-    
-    if not research_active:
-        return
-    
-    # Create a comprehensive report
-    report = generate_sample_report(topic, analysts)
-    emit_final_report(report)
-    
-    emit_terminal_output("📋 Final report compiled successfully", 'success')
-    emit_terminal_output("🎉 Research analysis complete!", 'success')
-    emit_progress(100, "Research completed successfully")
-    
-    # Emit completion status
-    socketio.emit('research_completed', {
-        'topic': topic,
-        'analyst_count': len(analysts),
-        'implementation': implementation
-    })
-
-def generate_sample_report(topic, analysts):
-    """Generate a sample report based on the research topic and analysts"""
-    analyst_names = []
-    for analyst in analysts:
-        if hasattr(analyst, 'name'):
-            analyst_names.append(analyst.name)
-        else:
-            analyst_names.append(analyst.get('name', 'Unknown Analyst'))
-    
-    return f"""# Research Report: {topic}
-
-## Executive Summary
-
-Our multi-analyst research team conducted a comprehensive investigation into {topic}. Through diverse expert perspectives and systematic analysis, we have identified key insights, trends, and recommendations.
-
-## Research Methodology
-
-This research employed a multi-agent approach with {len(analysts)} specialized analysts:
-
-{chr(10).join([f"• **{name}** - Contributing unique expertise and perspective" for name in analyst_names])}
-
-## Key Findings
-
-### Primary Insights
-- Comprehensive analysis reveals multiple dimensions of {topic}
-- Cross-disciplinary perspectives provide robust understanding
-- Evidence-based recommendations support practical implementation
-
-### Detailed Analysis
-Each analyst contributed unique expertise to create a holistic view of the research topic. The convergence of different analytical approaches strengthens the validity of our conclusions.
-
-### Research Perspectives
-
-{chr(10).join([f"**{name}**: Provided specialized insights from their domain expertise" for name in analyst_names])}
-
-## Recommendations
-
-1. **Immediate Actions**: Based on current evidence and expert consensus
-2. **Long-term Strategy**: Sustainable approaches for continued development
-3. **Risk Mitigation**: Potential challenges and preventive measures
-4. **Success Metrics**: Key indicators for measuring progress
-
-## Conclusion
-
-The research demonstrates the value of multi-perspective analysis in understanding complex topics. The insights generated through this collaborative approach provide a solid foundation for informed decision-making.
-
----
-*Report generated by AI Research Assistant using multi-agent analysis*
-*Analysts: {", ".join(analyst_names)}*
-*Topic: {topic}*
-"""
-
 def open_browser():
     """Open the web browser to the application"""
     time.sleep(1.5)  # Wait for server to start
@@ -651,7 +483,7 @@ def open_browser():
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🤖 AI Research Assistant - Web Interface (CORRECTED)")
+    print("🤖 AI Research Assistant - Web Interface (COMBINED WORKING)")
     print("="*60)
     print(f"🔗 LangChain Available: {LANGCHAIN_AVAILABLE}")
     print(f"🌐 LangGraph Available: {LANGGRAPH_AVAILABLE}")
@@ -661,6 +493,7 @@ if __name__ == '__main__':
     print("🚀 Starting web server...")
     print("🌐 Opening browser automatically...")
     print("💡 Use Ctrl+C to stop the server")
+    print("💡 Real reports + Analysts display + Human feedback working!")
     print("="*60)
     
     # Open browser in a separate thread
@@ -670,11 +503,3 @@ if __name__ == '__main__':
     
     # Start the Flask-SocketIO server
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
-
-
-
-    '''source /Users/vinyakestur/Documents/Projects/Projects_Built/Projects_luminity/langchain-langgraph-research-assistant/venv/bin/activate
-    export TAVILY_API_KEY=""
-    export ANTHROPIC_API_KEY=""
-    python fixed_app.py
-'''
