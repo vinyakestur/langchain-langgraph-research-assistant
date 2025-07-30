@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Assistant</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            min-height: 600px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 30px;
+            border-right: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .control-input, .control-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .control-input:focus, .control-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+        }
+
+        .output-panel {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            background: #f8f9fa;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .tab-content {
+            flex: 1;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .terminal-line {
+            margin-bottom: 8px;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInUp 0.5s ease forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .terminal-prompt {
+            color: #4ade80;
+        }
+
+        .terminal-output {
+            color: #e5e7eb;
+        }
+
+        .terminal-analyst {
+            color: #60a5fa;
+        }
+
+        .terminal-expert {
+            color: #fbbf24;
+        }
+
+        .terminal-success {
+            color: #4ade80;
+        }
+
+        .terminal-error {
+            color: #ef4444;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #667eea);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status-idle {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .status-running {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-complete {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .analyst-cards {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .analyst-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .analyst-card.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .analyst-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .analyst-role {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .analyst-description {
+            color: #374151;
+            font-size: 13px;
+        }
+
+        .report-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .report-content h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .report-content h2 {
+            color: #374151;
+            margin: 20px 0 10px 0;
+            font-size: 18px;
+        }
+
+        .report-content h3 {
+            color: #4b5563;
+            margin: 15px 0 8px 0;
+            font-size: 16px;
+        }
+
+        .settings-section {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .settings-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #10b981;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+        }
+
+        .connection-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        .connection-indicator.connected {
+            background: rgba(16, 185, 129, 0.9);
+        }
+
+        .connection-indicator.disconnected {
+            background: rgba(239, 68, 68, 0.9);
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalAppear 0.3s ease;
+        }
+
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            padding: 25px 30px 15px 30px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #374151;
+            font-size: 1.5rem;
+        }
+
+        .modal-close {
+            font-size: 2rem;
+            cursor: pointer;
+            color: #6b7280;
+            line-height: 1;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: #ef4444;
+        }
+
+        .modal-body {
+            padding: 25px 30px;
+        }
+
+        .modal-body p {
+            margin-bottom: 20px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .feedback-input-group {
+            margin-top: 20px;
+        }
+
+        .feedback-input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .feedback-input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .feedback-input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-footer {
+            padding: 15px 30px 25px 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer .btn {
+            margin: 0;
+            min-width: 120px;
+        }
+
+        .current-analysts-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .analyst-preview-item {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+        }
+
+        .analyst-preview-name {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 3px;
+        }
+
+        .analyst-preview-role {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .main-panel {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-indicator" id="connection-status">Connecting...</div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Research Assistant</h1>
+            <p>Multi-agent research system with real-time progress tracking</p>
+        </div>
+
+        <div class="main-panel">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <div class="settings-section">
+                    <div class="settings-title">🔧 System Status</div>
+                    <div class="api-status" id="anthropic-status">
+                        <div class="status-dot status-disconnected"></div>
+                        <span>Anthropic API</span>
+                    </div>
+                    <div class="api-status" id="tavily-status">
+                        <div class="status-dot status-disconnected"></div>
+                        <span>Tavily API</span>
+                    </div>
+                    <div class="api-status" id="langchain-status">
+                        <div class="status-dot status-disconnected"></div>
+                        <span>LangChain</span>
+                    </div>
+                    <div class="api-status" id="langgraph-status">
+                        <div class="status-dot status-disconnected"></div>
+                        <span>LangGraph</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">🔍 Research Topic</label>
+                    <input type="text" 
+                           class="control-input" 
+                           id="research-topic" 
+                           placeholder="e.g., Benefits of meditation for productivity"
+                           value="Benefits of meditation for productivity">
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">⚙️ Implementation</label>
+                    <select class="control-select" id="implementation-type">
+                        <option value="langchain">LangChain (Sequential)</option>
+                        <option value="langgraph" selected>LangGraph (Parallel)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">👥 Number of Analysts</label>
+                    <select class="control-select" id="analyst-count">
+                        <option value="2">2 Analysts</option>
+                        <option value="3" selected>3 Analysts</option>
+                        <option value="4">4 Analysts</option>
+                        <option value="5">5 Analysts</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">📝 Human Feedback</label>
+                    <input type="text" 
+                           class="control-input" 
+                           id="human-feedback" 
+                           placeholder="Optional feedback for analyst generation"
+                           onkeypress="handleFeedbackKeypress(event)">
+                    <button class="btn btn-secondary" id="submit-feedback-btn" onclick="submitCurrentFeedback()" style="margin-top: 10px; display: none;">
+                        📝 Submit Feedback
+                    </button>
+                </div>
+
+                <button class="btn" id="start-research" onclick="startResearch()">
+                    ▶️ Start Research
+                </button>
+                
+                <button class="btn btn-secondary" id="stop-research" onclick="stopResearch()" disabled>
+                    ⏹️ Stop Research
+                </button>
+
+                <button class="btn btn-secondary" id="feedback-trigger" onclick="triggerFeedbackModal()" style="display: none;">
+                    💭 Provide Feedback
+                </button>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">Ready to start research</div>
+                </div>
+
+                <div class="status-badge status-idle" id="status-badge">Idle</div>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('console')">📟 Console</div>
+                    <div class="tab" onclick="switchTab('analysts')">👥 Analysts</div>
+                    <div class="tab" onclick="switchTab('report')">📋 Report</div>
+                </div>
+
+                <!-- Console Tab -->
+                <div class="tab-content active" id="console-tab">
+                    <div class="terminal" id="terminal">
+                        <div class="terminal-line">
+                            <span class="terminal-prompt">research-assistant$</span>
+                            <span class="terminal-output">AI Research Assistant Web Interface Ready</span>
+                        </div>
+                        <div class="terminal-line">
+                            <span class="terminal-output">Configure your research parameters and click "Start Research"</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysts Tab -->
+                <div class="tab-content" id="analysts-tab">
+                    <div class="analyst-cards" id="analyst-cards">
+                        <div style="text-align: center; color: #6b7280; margin-top: 50px;">
+                            <p>👥 Analyst personas will appear here once research begins</p>
+                            <p style="margin-top: 10px; font-size: 14px;">Each analyst will have unique expertise and perspective</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Tab -->
+                <div class="tab-content" id="report-tab">
+                    <div class="report-content" id="report-content">
+                        <div style="text-align: center; color: #6b7280; margin-top: 50px;">
+                            <h3>📋 Research Report</h3>
+                            <p style="margin-top: 20px;">Your comprehensive research report will appear here</p>
+                            <p style="margin-top: 10px; font-size: 14px;">Start a research session to generate insights from multiple expert perspectives</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        let researchActive = false;
+        let currentProgress = 0;
+        let pendingAnalysts = null; // Store analysts for manual feedback trigger
+        let waitingForFeedback = false; // Track if we're waiting for feedback
+
+        // Connection status handling
+        socket.on('connect', function() {
+            updateConnectionStatus(true);
+            console.log('Connected to research assistant server');
+            checkSystemStatus();
+        });
+
+        socket.on('disconnect', function() {
+            updateConnectionStatus(false);
+            console.log('Disconnected from server');
+        });
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connection-status');
+            if (connected) {
+                indicator.textContent = '🟢 Connected';
+                indicator.className = 'connection-indicator connected';
+            } else {
+                indicator.textContent = '🔴 Disconnected';
+                indicator.className = 'connection-indicator disconnected';
+            }
+        }
+
+        // Check system status
+        function checkSystemStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatusIndicator('anthropic-status', data.anthropic_connected);
+                    updateStatusIndicator('tavily-status', data.tavily_connected);
+                    updateStatusIndicator('langchain-status', data.langchain_available);
+                    updateStatusIndicator('langgraph-status', data.langgraph_available);
+                })
+                .catch(error => {
+                    console.error('Error checking system status:', error);
+                });
+        }
+
+        function updateStatusIndicator(elementId, connected) {
+            const element = document.getElementById(elementId);
+            const dot = element.querySelector('.status-dot');
+            if (connected) {
+                dot.className = 'status-dot status-connected';
+            } else {
+                dot.className = 'status-dot status-disconnected';
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        // Terminal output functions
+        function addTerminalLine(text, type = 'output') {
+            const terminal = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            
+            let className = 'terminal-' + type;
+            line.innerHTML = `<span class="${className}">${text}</span>`;
+            
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function updateProgress(percentage, text) {
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = text;
+        }
+
+        function updateStatus(status, text) {
+            const badge = document.getElementById('status-badge');
+            badge.className = `status-badge status-${status}`;
+            badge.textContent = text;
+        }
+
+        // Research control functions
+        function startResearch() {
+            if (researchActive) return;
+
+            const topic = document.getElementById('research-topic').value.trim();
+            const implementation = document.getElementById('implementation-type').value;
+            const analystCount = document.getElementById('analyst-count').value;
+            const humanFeedback = document.getElementById('human-feedback').value.trim();
+
+            if (!topic) {
+                addTerminalLine('❌ Please enter a research topic', 'error');
+                return;
+            }
+
+            // Send research start request to server
+            socket.emit('start_research', {
+                topic: topic,
+                implementation: implementation,
+                analyst_count: analystCount,
+                human_feedback: humanFeedback
+            });
+        }
+
+        function stopResearch() {
+            if (!researchActive) return;
+            
+            socket.emit('stop_research');
+        }
+
+        // Socket event handlers
+        socket.on('research_started', function(data) {
+            researchActive = true;
+            waitingForFeedback = false;
+            document.getElementById('start-research').disabled = true;
+            document.getElementById('stop-research').disabled = false;
+            document.getElementById('submit-feedback-btn').style.display = 'none';
+            
+            updateStatus('running', 'Research Active');
+            addTerminalLine(`🚀 Research started: ${data.topic}`, 'success');
+            addTerminalLine(`⚙️ Using ${data.implementation.toUpperCase()} with ${data.analyst_count} analysts`, 'output');
+        });
+
+        socket.on('research_stopped', function(data) {
+            researchActive = false;
+            document.getElementById('start-research').disabled = false;
+            document.getElementById('stop-research').disabled = true;
+            
+            updateStatus('idle', 'Stopped');
+            addTerminalLine(data.message, 'error');
+        });
+
+        socket.on('research_completed', function(data) {
+            researchActive = false;
+            document.getElementById('start-research').disabled = false;
+            document.getElementById('stop-research').disabled = true;
+            
+            updateStatus('complete', 'Complete');
+            
+            // Auto-switch to report tab after completion
+            setTimeout(() => {
+                document.querySelector('.tab:nth-child(3)').click();
+            }, 2000);
+        });
+
+        socket.on('research_error', function(data) {
+            researchActive = false;
+            document.getElementById('start-research').disabled = false;
+            document.getElementById('stop-research').disabled = true;
+            
+            updateStatus('error', 'Error');
+            addTerminalLine(`❌ Research error: ${data.error}`, 'error');
+        });
+
+        socket.on('progress_update', function(data) {
+            updateProgress(data.progress, data.message);
+        });
+
+        socket.on('terminal_output', function(data) {
+            addTerminalLine(data.message, data.type);
+        });
+
+        socket.on('analysts_created', function(data) {
+            displayAnalysts(data.analysts);
+        });
+
+        socket.on('feedback_required', function(data) {
+            console.log('Feedback required event received:', data);
+            pendingAnalysts = data.analysts; // Store for manual trigger
+            waitingForFeedback = true; // Set waiting state
+            
+            // Show the submit feedback button
+            const submitBtn = document.getElementById('submit-feedback-btn');
+            submitBtn.style.display = 'block';
+            submitBtn.disabled = false;
+            
+            // Add instruction in terminal
+            addTerminalLine('💡 You can now provide feedback in the input field and press Enter or click "Submit Feedback"', 'output');
+            
+            // Focus on the feedback input
+            const feedbackInput = document.getElementById('human-feedback');
+            feedbackInput.focus();
+            
+            // Show manual trigger button as backup
+            document.getElementById('feedback-trigger').style.display = 'block';
+            
+            // Optional: Show modal as well
+            showFeedbackModal(data.analysts);
+        });
+
+        function handleFeedbackKeypress(event) {
+            if (event.key === 'Enter' && waitingForFeedback) {
+                submitCurrentFeedback();
+            }
+        }
+
+        function submitCurrentFeedback() {
+            if (!waitingForFeedback) {
+                addTerminalLine('❌ Not currently waiting for feedback', 'error');
+                return;
+            }
+            
+            const feedback = document.getElementById('human-feedback').value.trim();
+            submitFeedback(feedback);
+            
+            // Hide the submit button
+            document.getElementById('submit-feedback-btn').style.display = 'none';
+            waitingForFeedback = false;
+        }
+
+        socket.on('feedback_submitted', function(data) {
+            console.log('Server confirmed feedback submission:', data);
+            addTerminalLine('✅ Feedback received by server, continuing research...', 'success');
+        });
+
+        function triggerFeedbackModal() {
+            if (pendingAnalysts) {
+                showFeedbackModal(pendingAnalysts);
+            } else {
+                addTerminalLine('❌ No analysts available for feedback', 'error');
+            }
+        }
+
+        socket.on('report_generated', function(data) {
+            displayReport(data.report);
+        });
+
+        function showFeedbackModal(analysts) {
+            console.log('Showing feedback modal for analysts:', analysts);
+            
+            // Display current analysts in modal
+            const analystsDisplay = document.getElementById('current-analysts-display');
+            analystsDisplay.innerHTML = '<div class="current-analysts-preview"></div>';
+            
+            const container = analystsDisplay.querySelector('.current-analysts-preview');
+            container.innerHTML = '<h4 style="margin-bottom: 15px; color: #374151;">Generated Analysts:</h4>';
+            
+            analysts.forEach(analyst => {
+                const item = document.createElement('div');
+                item.className = 'analyst-preview-item';
+                item.innerHTML = `
+                    <div class="analyst-preview-name">${analyst.name}</div>
+                    <div class="analyst-preview-role">${analyst.role} - ${analyst.affiliation}</div>
+                `;
+                container.appendChild(item);
+            });
+            
+            // Clear any previous feedback
+            document.getElementById('modal-feedback-input').value = '';
+            
+            // Show modal
+            console.log('Displaying modal...');
+            document.getElementById('feedback-modal').style.display = 'flex';
+            
+            // Add a backup button in case modal doesn't work
+            addTerminalLine('💭 Feedback modal should appear. If not, click "Continue Without Feedback" below', 'output');
+            setTimeout(() => {
+                if (document.getElementById('feedback-modal').style.display === 'flex') {
+                    // Modal is working fine
+                } else {
+                    // Modal failed to show, add fallback
+                    addFallbackFeedbackButtons();
+                }
+            }, 2000);
+        }
+
+        function addFallbackFeedbackButtons() {
+            const terminal = document.getElementById('terminal');
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.innerHTML = `
+                <div style="background: #374151; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <div style="color: #f3f4f6; margin-bottom: 10px;">💭 Provide feedback for the generated analysts:</div>
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="fallback-feedback" placeholder="Optional feedback..." 
+                               style="width: 100%; padding: 8px; border-radius: 4px; border: none;">
+                    </div>
+                    <div>
+                        <button onclick="submitFeedback('')" 
+                                style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 10px; cursor: pointer;">
+                            Continue Without Feedback
+                        </button>
+                        <button onclick="submitFeedback(document.getElementById('fallback-feedback').value)" 
+                                style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                            Apply Feedback
+                        </button>
+                    </div>
+                </div>
+            `;
+            terminal.appendChild(fallbackDiv);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+
+        function submitFeedback(customFeedback = null) {
+            let feedback = '';
+            
+            if (customFeedback === '') {
+                // No feedback case
+                feedback = '';
+            } else if (customFeedback) {
+                // Custom feedback passed
+                feedback = customFeedback;
+            } else {
+                // Get feedback from textarea
+                feedback = document.getElementById('modal-feedback-input').value.trim();
+            }
+            
+            // Close modal
+            closeFeedbackModal();
+            
+            // Hide feedback trigger button and submit button
+            document.getElementById('feedback-trigger').style.display = 'none';
+            document.getElementById('submit-feedback-btn').style.display = 'none';
+            waitingForFeedback = false;
+            
+            // Remove any fallback buttons
+            const fallbackElements = document.querySelectorAll('[id^="fallback-feedback"]');
+            fallbackElements.forEach(el => {
+                if (el.parentElement && el.parentElement.parentElement) {
+                    el.parentElement.parentElement.remove();
+                }
+            });
+            
+            // Send feedback to server
+            console.log('Submitting feedback:', feedback);
+            socket.emit('submit_feedback', { feedback: feedback });
+            
+            // Update UI
+            if (feedback) {
+                addTerminalLine(`💭 Human feedback submitted: ${feedback}`, 'analyst');
+            } else {
+                addTerminalLine('💭 Continuing without human feedback', 'output');
+            }
+        }
+
+        function displayAnalysts(analysts) {
+            const container = document.getElementById('analyst-cards');
+            container.innerHTML = '';
+            
+            analysts.forEach((analyst, index) => {
+                const card = document.createElement('div');
+                card.className = 'analyst-card';
+                card.innerHTML = `
+                    <div class="analyst-name">${analyst.name}</div>
+                    <div class="analyst-role">${analyst.role} - ${analyst.affiliation}</div>
+                    <div class="analyst-description">${analyst.description}</div>
+                `;
+                container.appendChild(card);
+                
+                // Animate card appearance
+                setTimeout(() => {
+                    card.classList.add('show');
+                }, index * 200);
+            });
+        }
+
+        function displayReport(report) {
+            const reportContent = document.getElementById('report-content');
+            
+            // Convert markdown-like formatting to HTML
+            let formattedReport = report
+                .replace(/\n/g, '<br>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/^• (.+)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            
+            reportContent.innerHTML = formattedReport;
+        }
+
+        // Initialize the interface
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('idle', 'Ready');
+            updateProgress(0, 'Ready to start research');
+            
+            // Add welcome message
+            setTimeout(() => {
+                addTerminalLine('💡 Welcome! Configure your research topic and start analysis', 'output');
+                addTerminalLine('🔧 System status will update once connected to backend', 'output');
+            }, 1000);
+        });
+
+        // Handle Enter key in research topic input
+        document.getElementById('research-topic').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !researchActive) {
+                startResearch();
+            }
+        });
+    </script>
+    <!-- Feedback Modal - ADD THIS BEFORE CLOSING </body> TAG -->
+    <div class="modal" id="feedback-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💭 Provide Analyst Feedback</h3>
+                <span class="modal-close" onclick="closeFeedbackModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>The system has generated the following analysts. You can provide feedback to refine their expertise or continue without changes.</p>
+                
+                <div id="current-analysts-display">
+                    <!-- Analysts will be populated here -->
+                </div>
+                
+                <div class="feedback-input-group">
+                    <label for="modal-feedback-input">Your Feedback (optional):</label>
+                    <textarea id="modal-feedback-input" 
+                              rows="4" 
+                              placeholder="e.g., 'Add more focus on workplace applications' or 'Include a data scientist perspective'"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="submitFeedback('')">Continue Without Changes</button>
+                <button class="btn" onclick="submitFeedback()">Apply Feedback & Continue</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

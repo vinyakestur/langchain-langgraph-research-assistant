@@ -628,6 +628,5 @@ if __name__ == "__main__":
 
 '''cd /Users/vinyakestur/Desktop/langchain-langgraph-research-assistant
 source venv/bin/activate
-export ANTHROPIC_API_KEY=your_actual_api_key_here
-python LangChain_ResearchAssistant.py
-'''
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+python LangChain_ResearchAssistant.py'''

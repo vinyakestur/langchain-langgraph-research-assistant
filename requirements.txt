@@ -1,17 +1,26 @@
-# Core LangChain dependencies
-langchain>=0.1.0
-langchain-anthropic>=0.1.0
-langchain-community>=0.0.25
-langgraph>=0.0.30
+# AI Research Assistant Web Interface Requirements
 
-# AI model and API integrations
-anthropic>=0.8.0
-tavily-python>=0.3.0
+# Core Flask dependencies
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+python-socketio==5.8.0
+python-engineio==4.7.1
 
-# Data handling and validation
-pydantic>=2.0.0
-typing-extensions>=4.0.0
+# LangChain and AI dependencies
+langchain==0.1.0
+langchain-anthropic==0.1.0
+langchain-community==0.0.13
+langgraph==0.0.21
+
+# Optional for enhanced search
+tavily-python==0.3.0
+
+# Data processing
+pydantic==2.5.0
+typing-extensions==4.8.0
+
+# Wikipedia search
+wikipedia==1.4.0
 
 # Utilities
-wikipedia>=1.4.0
-python-dotenv>=1.0.0
+python-dotenv==1.0.0
